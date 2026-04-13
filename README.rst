@@ -143,3 +143,4 @@ The development of Bandit is made possible by the following sponsors:
           :width: 88
 
 If you also ❤️ Bandit, please consider sponsoring.
+.....11111
