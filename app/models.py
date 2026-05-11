@@ -5,12 +5,11 @@ class User(db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.Text, nullable=False)
     role = db.Column(db.String(20), default='user')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def __repr__(self):
-        return f'<User {self.username}>'
+    scan_tasks = db.relationship('ScanTask', backref='user', lazy='dynamic')
 
 class ScanTask(db.Model):
     __tablename__ = 'scan_task'
@@ -22,5 +21,3 @@ class ScanTask(db.Model):
     result = db.Column(db.JSON)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
-
-    user = db.relationship('User', backref='scan_tasks')

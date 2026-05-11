@@ -1,10 +1,11 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class Config:
-    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-change-in-prod')
-    SQLALCHEMY_DATABASE_URI = 'mysql+mysqlconnector://root:root123@localhost/secscan'
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key')
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'mysql+pymysql://root:root123@localhost:3306/secscan')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'jwt-dev-key')
-    JWT_ACCESS_TOKEN_EXPIRES = 3600  # 1 hour
-    CELERY_BROKER_URL = 'redis://localhost:6379/0'
-    CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+    JWT_ACCESS_TOKEN_EXPIRES = 3600

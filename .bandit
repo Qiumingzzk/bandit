@@ -1,0 +1,5 @@
+# .bandit
+profiles:
+  custom:
+    include:
+    - detect_insecure_deserialization

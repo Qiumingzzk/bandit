@@ -4,26 +4,31 @@ import os
 
 
 def run_bandit_scan(target_path: str):
-    """
-    执行 Bandit 扫描，加载自定义插件，返回 JSON 结果
-    """
-    # 确保路径存在
     if not os.path.exists(target_path):
-        return {"error": f"路径不存在: {target_path}"}
+        return {"error": f"Path does not exist: {target_path}"}
 
-    # 构建命令，加载自定义插件
+    abs_path = os.path.abspath(target_path)
+
+    # 使用配置文件 + profile 方式加载插件
     cmd = [
-        'bandit', '-r', target_path,
-        '-p', 'custom_rules.detect_insecure_deserialization',
-        '-f', 'json', '--quiet'
+        'bandit', abs_path,
+        '-c', '/app/.bandit',  # 配置文件路径（容器内）
+        '-p', 'custom',  # 使用配置文件中的 custom profile
+        '-f', 'json',
+        '--quiet'
     ]
+
+    # 设置 PYTHONPATH 以确保 Bandit 能找到 custom_rules 包
+    env = os.environ.copy()
+    env['PYTHONPATH'] = '/app'
+
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=env)
         if result.stdout:
             return json.loads(result.stdout)
         else:
-            return {"error": "扫描无输出", "stderr": result.stderr}
+            return {"error": "No output", "stderr": result.stderr}
     except subprocess.TimeoutExpired:
-        return {"error": "扫描超时（超过120秒）"}
+        return {"error": "Scan timeout (120s)"}
     except Exception as e:
         return {"error": str(e)}

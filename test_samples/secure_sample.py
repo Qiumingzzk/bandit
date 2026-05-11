@@ -1,7 +1,16 @@
+import json
 import yaml
-import pickle
+import numpy as np
 
-# 使用安全方法
-safe_yaml = yaml.safe_load("{name: John}")
-# 正常使用 pickle.dumps 不触发检测
-data = pickle.dumps({"a": 1})
+def safe_pickle(data):
+    obj = json.loads(data)   # safe
+
+def safe_yaml(data):
+    obj = yaml.safe_load(data)  # safe
+
+def safe_joblib(path):
+    with open(path.replace('.pkl', '.json'), 'r') as f:
+        model = json.load(f)
+
+def safe_numpy(path):
+    arr = np.load(path, allow_pickle=False)  # safe

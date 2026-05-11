@@ -1,34 +1,30 @@
-from ..extensions import celery, db
-from .scanner import run_bandit_scan
-from ..models import ScanTask
+import threading
 from datetime import datetime
+from app.models import ScanTask, db
+from .scanner import run_bandit_scan
 
-@celery.task(bind=True)
-def async_scan_task(self, task_id: int, target_path: str):
-    """
-    异步执行 Bandit 扫描，更新任务状态和结果
-    """
-    try:
-        # 更新状态为 running
-        task = ScanTask.query.get(task_id)
-        if not task:
-            return {"error": "任务不存在"}
-        task.status = 'running'
-        db.session.commit()
-
-        # 执行扫描
-        result = run_bandit_scan(target_path)
-
-        # 更新完成状态
-        task.status = 'completed'
-        task.result = result
-        task.completed_at = datetime.utcnow()
-        db.session.commit()
-        return result
-    except Exception as e:
-        task = ScanTask.query.get(task_id)
-        if task:
-            task.status = 'failed'
-            task.result = {"error": str(e)}
-            db.session.commit()
-        raise e
+def start_async_scan(task_id: int, target_path: str):
+    def _run():
+        from app import create_app
+        app = create_app()
+        with app.app_context():
+            task = ScanTask.query.get(task_id)
+            if not task:
+                app.logger.error(f"Task {task_id} not found")
+                return
+            try:
+                task.status = 'running'
+                db.session.commit()
+                app.logger.info(f"Starting scan for task {task_id}, path: {target_path}")
+                result = run_bandit_scan(target_path)
+                task.status = 'completed'
+                task.result = result
+                task.completed_at = datetime.utcnow()
+                db.session.commit()
+                app.logger.info(f"Scan completed for task {task_id}")
+            except Exception as e:
+                app.logger.error(f"Scan failed for task {task_id}: {str(e)}", exc_info=True)
+                task.status = 'failed'
+                task.result = {"error": str(e)}
+                db.session.commit()
+    threading.Thread(target=_run, daemon=True).start()

@@ -2,160 +2,280 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>代码安全扫描平台</title>
     <style>
-        body { font-family: Arial; margin: 2rem; }
-        input, button { margin: 0.5rem; padding: 0.5rem; }
-        pre { background: #f4f4f4; padding: 1rem; border-radius: 5px; overflow-x: auto; }
-        .error { color: red; }
-        .success { color: green; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #1a1a2e; margin-top: 0; }
+        .section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        input, button {
+            padding: 12px 16px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+        button {
+            background: #4361ee;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover { background: #3a56d4; }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-pending { background: #ffc107; color: #000; }
+        .status-running { background: #17a2b8; color: #fff; }
+        .status-completed { background: #28a745; color: #fff; }
+        .status-failed { background: #dc3545; color: #fff; }
+        .hidden { display: none; }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #4361ee;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
-    <h1>代码安全扫描平台</h1>
-    <div id="auth">
-        <h2>注册 / 登录</h2>
-        <input type="text" id="username" placeholder="用户名">
-        <input type="password" id="password" placeholder="密码">
-        <button onclick="register()">注册</button>
-        <button onclick="login()">登录</button>
-        <p id="message"></p>
-    </div>
-    <hr>
-    <div id="scan" style="display:none;">
-        <h2>发起扫描</h2>
-        <input type="text" id="taskName" placeholder="任务名称">
-        <input type="text" id="targetPath" placeholder="扫描路径 (如 test_samples)" style="width:300px">
-        <button onclick="startScan()">开始扫描</button>
-        <div id="result"></div>
+    <div class="container">
+        <h1>🔒 代码安全扫描平台</h1>
+        <p>基于 Bandit 的自定义规则检测不安全反序列化漏洞</p>
+
+        <!-- 认证区域 -->
+        <div id="auth-area" class="section">
+            <div id="login-form">
+                <h3>登录</h3>
+                <input type="text" id="login-username" placeholder="用户名"><br><br>
+                <input type="password" id="login-password" placeholder="密码"><br><br>
+                <button onclick="login()">登录</button>
+                <p style="margin-top: 10px;">没有账号？<a href="#" onclick="showRegister()">注册</a></p>
+            </div>
+
+            <div id="register-form" style="display:none">
+                <h3>注册</h3>
+                <input type="text" id="reg-username" placeholder="用户名"><br><br>
+                <input type="password" id="reg-password" placeholder="密码"><br><br>
+                <button onclick="register()">注册</button>
+                <p style="margin-top: 10px;"><a href="#" onclick="showLogin()">返回登录</a></p>
+            </div>
+
+            <div id="user-info" style="display:none">
+                <p>✅ 已登录: <span id="username-display"></span></p>
+                <button onclick="logout()">登出</button>
+            </div>
+        </div>
+
+        <!-- 扫描区域 -->
+        <div id="scan-area" style="display:none" class="section">
+            <h3>📁 代码安全扫描</h3>
+            <p>输入要扫描的 Python 代码路径（绝对路径或相对于项目根目录）</p>
+            <input type="text" id="target-path" placeholder="例如: ./test_samples/vulnerable_sample.py" style="width: 70%">
+            <button onclick="startScan()">开始扫描</button>
+
+            <div id="scan-loading" style="display:none; margin-top: 10px;">
+                <div class="loading"></div> 扫描中，请稍候...
+            </div>
+
+            <div id="result-area" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- 功能说明 -->
+        <div class="section">
+            <h3>🔍 检测规则说明</h3>
+            <p>本工具加载了自定义 Bandit 插件，用于检测以下不安全反序列化调用：</p>
+            <ul>
+                <li><code>pickle.load()</code> / <code>pickle.loads()</code> - 反序列化不可信数据可能导致 RCE</li>
+                <li><code>yaml.load()</code> (不安全 Loader) - 可构造任意 Python 对象</li>
+                <li><code>joblib.load()</code> - 基于 pickle，存在同样风险</li>
+                <li><code>numpy.load(allow_pickle=True)</code> - 允许 pickle 反序列化</li>
+            </ul>
+        </div>
     </div>
 
     <script>
-        let token = '';
+        let token = localStorage.getItem('access_token');
 
-        function showMessage(msg, isError = false) {
-            const msgDiv = document.getElementById('message');
-            msgDiv.textContent = msg;
-            msgDiv.className = isError ? 'error' : 'success';
-            setTimeout(() => msgDiv.textContent = '', 3000);
+        function updateUI() {
+            if (token) {
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('register-form').style.display = 'none';
+                document.getElementById('user-info').style.display = 'block';
+                document.getElementById('scan-area').style.display = 'block';
+                fetchUserInfo();
+            } else {
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('register-form').style.display = 'none';
+                document.getElementById('user-info').style.display = 'none';
+                document.getElementById('scan-area').style.display = 'none';
+            }
         }
 
-        async function register() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            if (!username || !password) {
-                showMessage('用户名和密码不能为空', true);
-                return;
-            }
+        async function fetchUserInfo() {
             try {
-                const res = await fetch('/auth/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                const response = await fetch('/auth/profile', {
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const data = await res.json();
-                if (res.ok) {
-                    showMessage(data.msg);
-                    document.getElementById('username').value = '';
-                    document.getElementById('password').value = '';
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('username-display').innerText = data.username;
                 } else {
-                    showMessage(data.msg || '注册失败', true);
+                    logout();
                 }
-            } catch (err) {
-                showMessage('网络错误：' + err.message, true);
+            } catch (e) {
+                logout();
             }
         }
 
         async function login() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            if (!username || !password) {
-                showMessage('用户名和密码不能为空', true);
-                return;
-            }
-            try {
-                const res = await fetch('/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    token = data.access_token;
-                    localStorage.setItem('token', token);
-                    showMessage('登录成功');
-                    document.getElementById('auth').style.display = 'none';
-                    document.getElementById('scan').style.display = 'block';
-                } else {
-                    showMessage(data.msg || '登录失败', true);
-                }
-            } catch (err) {
-                showMessage('网络错误：' + err.message, true);
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            const response = await fetch('/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                token = data.access_token;
+                localStorage.setItem('access_token', token);
+                updateUI();
+            } else {
+                alert('登录失败: ' + (data.msg || '未知错误'));
             }
         }
 
+        async function register() {
+            const username = document.getElementById('reg-username').value;
+            const password = document.getElementById('reg-password').value;
+            const response = await fetch('/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                alert('注册成功，请登录');
+                showLogin();
+            } else {
+                alert('注册失败: ' + (data.msg || '未知错误'));
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            token = null;
+            updateUI();
+        }
+
+        function showRegister() {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('register-form').style.display = 'block';
+        }
+
+        function showLogin() {
+            document.getElementById('login-form').style.display = 'block';
+            document.getElementById('register-form').style.display = 'none';
+        }
+
         async function startScan() {
-            if (!token) {
-                showMessage('请先登录', true);
+            const targetPath = document.getElementById('target-path').value;
+            if (!targetPath) {
+                alert('请输入要扫描的代码路径');
                 return;
             }
-            const taskName = document.getElementById('taskName').value;
-            const targetPath = document.getElementById('targetPath').value;
-            if (!taskName || !targetPath) {
-                showMessage('请填写任务名称和路径', true);
-                return;
-            }
+
+            const loadingDiv = document.getElementById('scan-loading');
+            const resultArea = document.getElementById('result-area');
+            loadingDiv.style.display = 'block';
+            resultArea.innerHTML = '';
+
             try {
-                const res = await fetch('/scan/start', {
+                const response = await fetch('/scan/start', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ name: taskName, path: targetPath })
+                    body: JSON.stringify({ target_path: targetPath })
                 });
-                const data = await res.json();
-                if (res.ok) {
-                    showMessage(`任务已提交，ID: ${data.task_id}`);
-                    pollResult(data.task_id);
+                const data = await response.json();
+                if (response.ok) {
+                    const taskId = data.task_id;
+                    pollResult(taskId);
                 } else {
-                    showMessage(data.msg || '提交失败', true);
+                    loadingDiv.style.display = 'none';
+                    resultArea.innerHTML = `<div style="color: red;">扫描启动失败: ${data.msg || '未知错误'}</div>`;
                 }
-            } catch (err) {
-                showMessage('网络错误：' + err.message, true);
+            } catch (e) {
+                loadingDiv.style.display = 'none';
+                resultArea.innerHTML = `<div style="color: red;">请求失败: ${e.message}</div>`;
             }
         }
 
         async function pollResult(taskId) {
             const interval = setInterval(async () => {
-                try {
-                    const res = await fetch(`/scan/result/${taskId}`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    const data = await res.json();
-                    if (data.status === 'completed') {
-                        clearInterval(interval);
-                        document.getElementById('result').innerHTML = `<pre>${JSON.stringify(data.result, null, 2)}</pre>`;
-                    } else if (data.status === 'failed') {
-                        clearInterval(interval);
-                        document.getElementById('result').innerHTML = `<p class="error">扫描失败: ${JSON.stringify(data.result)}</p>`;
+                const response = await fetch(`/scan/result/${taskId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.status === 'completed') {
+                    clearInterval(interval);
+                    document.getElementById('scan-loading').style.display = 'none';
+                    const resultArea = document.getElementById('result-area');
+                    const issues = data.result?.results || [];
+                    if (issues.length === 0) {
+                        resultArea.innerHTML = '<div style="color: green;">✅ 未检测到不安全反序列化问题</div>';
                     } else {
-                        document.getElementById('result').innerHTML = `<p>状态: ${data.status} ...</p>`;
+                        resultArea.innerHTML = `
+                            <div style="color: red;">⚠️ 检测到 ${issues.length} 个潜在的不安全反序列化问题</div>
+                            <pre>${JSON.stringify(issues, null, 2)}</pre>
+                        `;
                     }
-                } catch (err) {
-                    console.error(err);
+                } else if (data.status === 'failed') {
+                    clearInterval(interval);
+                    document.getElementById('scan-loading').style.display = 'none';
+                    document.getElementById('result-area').innerHTML = `<div style="color: red;">扫描失败: ${data.result?.error || '未知错误'}</div>`;
                 }
             }, 2000);
         }
 
-        // 页面加载时检查本地 token
-        const savedToken = localStorage.getItem('token');
-        if (savedToken) {
-            token = savedToken;
-            document.getElementById('auth').style.display = 'none';
-            document.getElementById('scan').style.display = 'block';
-            showMessage('已恢复登录状态');
-        }
+        updateUI();
     </script>
 </body>
 </html>
