@@ -18,3 +18,17 @@ ChangeLog
 doc/source/api
 .*.sw?
 AUTHORS
+venv/
+__pycache__/
+*.pyc
+.env
+mysql/
+redis/
+venv/
+__pycache__/
+*.pyc
+.env
+mysql_data/
+redis_data/
+*.db
+.DS_Store

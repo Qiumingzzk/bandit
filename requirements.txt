@@ -5,3 +5,14 @@ PyYAML>=5.3.1 # MIT
 stevedore>=1.20.0 # Apache-2.0
 colorama>=0.3.9;platform_system=="Windows" # BSD License (3 clause)
 rich # MIT
+Flask==2.3.3
+Flask-RESTx==1.1.0
+Flask-SQLAlchemy==3.0.5
+Flask-JWT-Extended==4.5.2
+Flask-Migrate==4.0.5
+bcrypt==4.0.1
+celery==5.3.1
+redis==5.0.0
+pymysql==1.0.2
+bandit==1.7.5
+pytest==7.4.0

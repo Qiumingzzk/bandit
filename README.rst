@@ -143,4 +143,33 @@ The development of Bandit is made possible by the following sponsors:
           :width: 88
 
 If you also ❤️ Bandit, please consider sponsoring.
-.....11111
+
+markdown
+# 代码安全扫描平台 (SE-NetSec-2026-SecScan)
+
+基于 Bandit 的自定义安全检测插件 + Flask 后端 + Celery 异步扫描
+
+## 快速启动
+
+1. 安装 Docker Desktop 并启动
+2. 在项目根目录运行：
+docker-compose up -d
+
+text
+3. 创建 Python 虚拟环境并安装依赖：
+python -m venv venv
+source venv/bin/activate # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+text
+4. 初始化数据库：
+flask db init
+flask db migrate -m "init"
+flask db upgrade
+
+text
+5. 启动 Celery Worker（新终端）：
+celery -A app.scan.tasks worker --loglevel=info
+
+text
+6. 启动 Flask 应用：

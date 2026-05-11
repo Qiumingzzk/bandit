@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>代码安全扫描平台</title>
+    <style>
+        body { font-family: Arial; margin: 2rem; }
+        input, button { margin: 0.5rem; padding: 0.5rem; }
+        pre { background: #f4f4f4; padding: 1rem; border-radius: 5px; overflow-x: auto; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>代码安全扫描平台</h1>
+    <div id="auth">
+        <h2>注册 / 登录</h2>
+        <input type="text" id="username" placeholder="用户名">
+        <input type="password" id="password" placeholder="密码">
+        <button onclick="register()">注册</button>
+        <button onclick="login()">登录</button>
+        <p id="message"></p>
+    </div>
+    <hr>
+    <div id="scan" style="display:none;">
+        <h2>发起扫描</h2>
+        <input type="text" id="taskName" placeholder="任务名称">
+        <input type="text" id="targetPath" placeholder="扫描路径 (如 test_samples)" style="width:300px">
+        <button onclick="startScan()">开始扫描</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        let token = '';
+
+        function showMessage(msg, isError = false) {
+            const msgDiv = document.getElementById('message');
+            msgDiv.textContent = msg;
+            msgDiv.className = isError ? 'error' : 'success';
+            setTimeout(() => msgDiv.textContent = '', 3000);
+        }
+
+        async function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            if (!username || !password) {
+                showMessage('用户名和密码不能为空', true);
+                return;
+            }
+            try {
+                const res = await fetch('/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showMessage(data.msg);
+                    document.getElementById('username').value = '';
+                    document.getElementById('password').value = '';
+                } else {
+                    showMessage(data.msg || '注册失败', true);
+                }
+            } catch (err) {
+                showMessage('网络错误：' + err.message, true);
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            if (!username || !password) {
+                showMessage('用户名和密码不能为空', true);
+                return;
+            }
+            try {
+                const res = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    token = data.access_token;
+                    localStorage.setItem('token', token);
+                    showMessage('登录成功');
+                    document.getElementById('auth').style.display = 'none';
+                    document.getElementById('scan').style.display = 'block';
+                } else {
+                    showMessage(data.msg || '登录失败', true);
+                }
+            } catch (err) {
+                showMessage('网络错误：' + err.message, true);
+            }
+        }
+
+        async function startScan() {
+            if (!token) {
+                showMessage('请先登录', true);
+                return;
+            }
+            const taskName = document.getElementById('taskName').value;
+            const targetPath = document.getElementById('targetPath').value;
+            if (!taskName || !targetPath) {
+                showMessage('请填写任务名称和路径', true);
+                return;
+            }
+            try {
+                const res = await fetch('/scan/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ name: taskName, path: targetPath })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showMessage(`任务已提交，ID: ${data.task_id}`);
+                    pollResult(data.task_id);
+                } else {
+                    showMessage(data.msg || '提交失败', true);
+                }
+            } catch (err) {
+                showMessage('网络错误：' + err.message, true);
+            }
+        }
+
+        async function pollResult(taskId) {
+            const interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/scan/result/${taskId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const data = await res.json();
+                    if (data.status === 'completed') {
+                        clearInterval(interval);
+                        document.getElementById('result').innerHTML = `<pre>${JSON.stringify(data.result, null, 2)}</pre>`;
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval);
+                        document.getElementById('result').innerHTML = `<p class="error">扫描失败: ${JSON.stringify(data.result)}</p>`;
+                    } else {
+                        document.getElementById('result').innerHTML = `<p>状态: ${data.status} ...</p>`;
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            }, 2000);
+        }
+
+        // 页面加载时检查本地 token
+        const savedToken = localStorage.getItem('token');
+        if (savedToken) {
+            token = savedToken;
+            document.getElementById('auth').style.display = 'none';
+            document.getElementById('scan').style.display = 'block';
+            showMessage('已恢复登录状态');
+        }
+    </script>
+</body>
+</html>
