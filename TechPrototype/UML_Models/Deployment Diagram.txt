@@ -1,0 +1,38 @@
+@startuml
+!define RECTANGLE class
+
+title 系统部署图 - 基于 Docker Compose
+
+actor "用户" as User
+
+node "宿主机 (Windows/Linux)" {
+    rectangle "Docker Engine" {
+        node "Web 容器" {
+            artifact "Flask 应用" as FlaskApp
+            artifact "Bandit 扫描器" as Bandit
+            artifact "自定义插件" as Plugin
+            FlaskApp --> Bandit : 调用
+            Bandit --> Plugin : 加载
+        }
+        node "MySQL 容器" {
+            database "MySQL 8.0" as MySQL
+            storage "数据卷: mysql_data" as MySQLVol
+        }
+        node "Redis 容器" as RedisContainer {
+            database "Redis 7" as Redis
+        }
+    }
+    file "docker-compose.yml" as Compose
+}
+
+User --> FlaskApp : HTTP / HTTPS (localhost:5000)
+FlaskApp --> MySQL : SQLAlchemy (3306)
+FlaskApp --> Redis : Celery/缓存 (6379, 预留)
+
+note right of Compose
+  定义三个服务：
+  - web: 构建自 Dockerfile
+  - db: mysql:8.0
+  - redis: redis:7-alpine
+end note
+@enduml
