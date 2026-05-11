@@ -1,0 +1,3 @@
+venv\Scripts\activate
+celery -A app.scan.tasks worker --loglevel=info --pool=solo
+python run.py
